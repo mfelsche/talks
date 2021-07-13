@@ -478,18 +478,48 @@
             </section>
             <section>
                 <h2>References in Pony</h2>
+                <p class="fragments">think of Objects as trees</p>
+                <p class="fragment">References are your access into that tree</p>
+                <p class="fragment">Capabilities limit your access, like a filter</p>
+            </section>
+            <section>
+                <h2>References in Pony</h2>
                 <h3 class="fragment">
-                    REFERENCE CAPABILITIES DETERMINE WHAT YOU ARE ALLOWED TO DO WITH REFERENCE
+                    REFERENCE CAPABILITIES DETERMINE WHAT YOU ARE ALLOWED TO DO WITH A REFERENCE
                 </h3>
                 <h3 class="fragment">
                     ... OR WHAT YOU ARE NOT ALLOWED TO DO
                 </h3>
             </section>
             <section>
-                <h2>References in Pony</h2>
-                <p class="fragments">think of Objects as trees</p>
-                <p class="fragment">References are your access into that tree</p>
-                <p class="fragment">Capabilities limit your access, like a filter</p>
+                <h2>Immutable References - val</h2>
+                <p>No mutation</p>
+                <p>&nbsp;</p>
+                <p>Safely shareable</p>
+
+                <pre><code data-trim data-noescape class="language-pony"><script type="text/template">
+                    let s: String val = "immutable String"
+                </script></code></pre>
+            </section>
+            <section>
+                <h2>Mutable References - ref</h2>
+                <p>Mutation allowed, through multiple references</p>
+                <p>&nbsp;</p>
+                <p>Not safely shareable</p>
+
+                <pre><code data-trim data-noescape class="language-pony"><script type="text/template">
+                    let s: String ref = String.create(42).>append("mutable String")
+                </script></code></pre>
+            </section>
+            <section>
+                <h2>The only mutable reference - iso</h2>
+                <p>Referenced object tree is only writable through this reference</p>
+                <p>&nbsp;</p>
+                <p>Safely shareable/sendable</p>
+
+                <pre><code data-trim data-noescape class="language-pony"><script type="text/template">
+                    let s: String iso = recover iso "isolated String" end
+                </script></code></pre>
             </section>
             <section>
                 <h2>Deny Capabilities</h2>
@@ -499,23 +529,24 @@
                     Safe, Fast Actors</a>
             </section>
             <section>
-                <h2>Constructors determine the Capability</h2>
-
-                <pre><code data-trim data-noescape class="language-pony"><script type="text/template">
-                    let s: String ref = String.create(42)                    // creates a `String ref`
-                    let s2: String val = String.from_array([U8(66); U8(67)]) // creates a `String val`
-
-                    class Wombat
-                      let name: String
-
-                      new iso isolated(name': String) =>
-                        name = name'
-
-                      new val immutable(name': String) =>
-                        name = name'
-
-
-                </script></code></pre>
+                <h2>Complexity in Pony</h2>
+                <ul>
+                    <li class="fragment">Building and designing complex object hierarchies</li>
+                    <li class="fragment">Viewpoint Adaptation - How you see nested fields with different capabilities
+                        through your reference</li>
+                    <li class="fragment">Classes need to be designed for use (ref vs. sendable)</li>
+                </ul>
+            </section>
+            <section>
+                <h2>Elegance in Pony</h2>
+                <ul>
+                    <li class="fragment">Models sane rules for safely sharing data</li>
+                    <li class="fragment">No Runtime Overhead</li>
+                    <li class="fragment">Leverages properties of the Actor System / Runtime</li>
+                </ul>
+            </section>
+            <section>
+                <h1>Thank You</h1>
             </section>
             <section>
                 <h2>C intrinsics</h2>
