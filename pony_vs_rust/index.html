@@ -1,0 +1,1228 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <meta name="author" content="Matthias Wahl">
+
+    <title>Pony vs Rust - How they both drive you mad at compile time</title>
+
+    <link rel="stylesheet" href="dist/reset.css">
+    <link rel="stylesheet" href="dist/reveal.css">
+    <link rel="stylesheet" href="dist/theme/robot-lung.css" id="theme">
+
+    <!-- Theme used for syntax highlighted code -->
+    <link rel="stylesheet" href="plugin/highlight/github.css" id="highlight-theme">
+</head>
+
+<body>
+    <!-- border -->
+    <div class="line top"></div>
+    <div class="line bottom"></div>
+    <div class="line left"></div>
+    <div class="line right"></div>
+
+
+
+    <div class="reveal">
+        <!-- global stuff visible on every page -->
+        <p style="position: absolute; bottom: 25px;left: 40px">
+            <img src="images/horse_sculpture.jpg" alt="horse sculpture" width="400px" />
+        </p>
+
+        <!-- slides content-->
+        <div class="slides">
+            <section>
+
+                <h1>Pony vs Rust</h1>
+                <h3>How they both drive you mad at compile time</h3>
+                <p>Matthias Wahl</p>
+                <p>&nbsp;</p>
+                <p>Pony VUG July 2021</p>
+            </section>
+
+            <section>
+
+                <h2>Agenda</h2>
+
+                <ol>
+                    <li>Safety</li>
+                    <li>How <b>Rust</b> achieves Safety (and drives you mad)</li>
+                    <li>How <b>Pony</b> achieves Safety <br />(and drives you mad in a different way)</li>
+                </ol>
+            </section>
+
+            <section>
+                <h1>Safety</h1>
+            </section>
+
+            <section>
+                <h2>Memory Safety</h2>
+                <section>
+                    <p>A computer loads data from memory into registers and works on them.</p>
+
+                    <p>&nbsp;</p>
+                    <p class="fragment">Then writes them somewhere.</p>
+
+                </section>
+                <section>
+                    <p>Computers allow us to turn plain numbers into pointers to memory (and vice versa).</p>
+
+                    <p>&nbsp;</p>
+                    <h2 style="color: red;" class="fragment">DANGER!</h2>
+                </section>
+                <section>
+                    <h3>Common Problems</h3>
+
+                    <ul>
+                        <li>Use-After-Free / dangling pointers</li>
+                        <li>Dereferencing NULL</li>
+                        <li>Use of uninitialized variables</li>
+                        <li>Double free</li>
+                    </ul>
+                </section>
+            </section>
+            <section>
+                <h2>Data Races</h2>
+                <section>
+                    <p>2 or more threads access the same piece of memory.</p>
+                    <p>&nbsp;</p>
+                    <p class="fragment">At least one of them writes to that memory.</p>
+                    <p>&nbsp;</p>
+                    <h2 style="color: red;" class="fragment">DANGER!</h2>
+                </section>
+            </section>
+
+            <section>
+                <h1>Rust</h1>
+                <p>How it achieves Memory Safety and Data Race Freedom</p>
+                <p>&nbsp;</p>
+                <p class="fragment">And drives programmers mad at compile time.</p>
+            </section>
+
+            <section>
+                <h3>Rust</h3>
+                <p>All the memory problems share a temporal aspect.</p>
+
+                <p>All caused by the wrong order of operations.</p>
+            </section>
+            <section>
+                <h3>Rust</h3>
+                <p>It should not be possible to refer to anything</p>
+                <ul>
+                    <li class="fragment">before initialization</li>
+                    <li class="fragment">after free</li>
+                </ul>
+            </section>
+            <section>
+                <h3>Rust has no Garbage collector</h3>
+                <p>Stuff is allocated upon creation</p>
+                <p>&nbsp;</p>
+                <p>Stuff is deallocated once it goes out of scope</p>
+            </section>
+            <section>
+                <p>Consumes memory in Rust:</p>
+                <ul>
+                    <li>Primitives (numbers, bools)</li>
+                    <li>Structs</li>
+                    <li>Enums (like unions in C)</li>
+                </ul>
+            </section>
+            <section>
+                <h3>Bringing something to life</h3>
+
+                <pre><code data-trim data-noescape class="language-rust"><script type="text/template">
+                        struct Wombat {
+                            name: String,
+                            hunger_level: u64
+                        }
+
+                        fn main() {
+                            // newborn is put on the stack
+                            let newborn: Wombat = Wombat {
+                                name: String::from("Fantastibat"),
+                                hunger_level: 0
+                            };
+
+                            println!("Your Wombat: {}", newborn.name);
+                            // deallocated here
+                        }
+                    </script></code></pre>
+            </section>
+            <section>
+                <h3>Now you own it!</h3>
+
+                <p>You have an owned <i>reference</i> to it</p>
+
+                <p>&nbsp;</p>
+                <p class="fragment">You can do whatever you want with it (Reading, Writing).</p>
+            </section>
+            <section>
+                <p>The Rust Compiler is tracking your reference.</p>
+                <p>&nbsp;</p>
+                <p>There is only ever 1 owned reference to a thing.</p>
+                <p>&nbsp;</p>
+                <p>If it falls out of scope, it will be allocated.</p>
+            </section>
+            <section>
+                <p>Using a function on our Wombat</p>
+                <pre><code data-trim data-noescape class="language-rust"><script type="text/template">
+                    fn weight(w: Wombat) -> usize {
+                        w.name.len() * w.hunger_level
+                    }
+
+                    fn main() {
+                        let newborn: Wombat = Wombat {
+                            name: String::from("Fantastibat"),
+                            hunger_level: 0
+                        };
+                        // owned reference moved to scope of `weight`.
+                        weight(newborn);
+                        // cannot reference `newborn` here
+                    }
+                </script></code></pre>
+            </section>
+            <section>
+                <p><b>VERY</b> impractical</p>
+                <p>&nbsp;</p>
+                <p>Imagine Pony with only
+                <pre>iso</pre>
+                </p>
+                <p>&nbsp;</p>
+            </section>
+            <section>
+                <h3>Borrowing</h3>
+                <p>You can have <b>read only references (Pointers)</b> from an owned reference.</p>
+
+                <pre><code data-trim data-noescape class="language-rust"><script type="text/template">
+                    fn weight(w: &Wombat) -> usize {
+                        w.name.len() * w.hunger_level
+                    }
+
+                    fn main() {
+                        let newborn: Wombat = Wombat { ... };
+                        weight(&newborn);
+                        // can still reference here
+                        println("name: {}", &newborn.name);
+                    }
+                </script></code></pre>
+            </section>
+            <section>
+                <h3>Borrowing</h3>
+                <p>You can also have <b>mutable references</b> from an owned reference.</p>
+                <p>But you need a mutable variable</p>
+
+                <pre><code data-trim data-noescape class="language-rust"><script type="text/template">
+                    fn lose_weight(w: &mut Wombat) {
+                        if w.hunger_level == 0 {
+                            w.name.pop();
+                        } else {
+                            w.hunger_level -= 1;
+                        }
+                    }
+
+                    fn main() {
+                        // mutable variable (reassign, mutation possible)
+                        let mut newborn = Wombat {...};
+                        lose_weight(&mut newborn);
+                    }
+                </script></code></pre>
+            </section>
+            <section>
+                <h3>Borrowing</h3>
+                <p>References track the lifetime of their owned thing.</p>
+                <pre><code data-trim data-noescape class="language-rust"><script type="text/template">
+                    fn lose_weight<'lifetime>(w: &'lifetime mut Wombat) {
+                        if w.hunger_level == 0 {
+                            w.name.pop();
+                        } else {
+                            w.hunger_level -= 1;
+                        }
+                    }
+                </script></code></pre>
+            </section>
+            <section>
+                <h3>Borrowing</h3>
+                <p>No reference may outlive the thing it references.</p>
+            </section>
+            <section>
+                <h3>Dangling pointers not possible anymore:</h3>
+                <pre><code data-trim data-noescape class="language-rust"><script type="text/template">
+                    // DOESN'T COMPILE
+                    fn crazy_wombat(name: String) -> &Wombat {
+                        let crazy = Wombat {
+                            name: format!("Crazy {}", name),
+                            hunger_level: 0
+                        };
+                        &crazy
+                    }
+                </script></code></pre>
+            </section>
+            <section>
+                <h3>Borrowing Rules (from the Rust book)</h3>
+                <ol>
+                    <p>At any given time, you can have <i>either</i> one mutable reference or any number of immutable
+                        references.</p>
+                    <p>References must always be valid.</p>
+                </ol>
+            </section>
+            <section>
+                <h3>Borrowing</h3>
+                <p>All enforced at compile time with zero runtime overhead.</p>
+                <p>&nbsp;</p>
+                <p class="fragment">Except the mental overhead.</p>
+            </section>
+            <section>
+                <h3>Lets parse some network data</h3>
+                <pre><code data-trim data-noescape class="language-rust"><script type="text/template">
+                    let mut buffer: Vec<u8> = Vec::with_capacity(4096);
+                    let num_read: usize = tcp_stream.read(&mut buffer);
+
+                    // create a slice with the data we just read
+                    let data: &'buffer [u8] = buffer[0..num_read];
+                    // parse it
+                    if let Ok(parsed) = parse(data) {
+                        println!("Parsed: {}", parsed);
+                    }
+                </script></code></pre>
+            </section>
+            <section>
+                <h3>Lets parse some network data</h3>
+
+                <pre><code data-trim data-noescape class="language-rust"><script type="text/template">
+                    struct Parsed {
+                        name: &str
+                    }
+
+                    fn parse(data: &[u8]) -> Result<Parsed, usize> {
+                        if let Some(len) = data.get(0)
+                            let name: &str = str::from_utf8(data[0..len])?;
+                            Ok(Parsed {
+                                name
+                            })
+                        } else {
+                            return Err(0)
+                        }
+                    }
+                </script></code></pre>
+            </section>
+            <section>
+                <h3>Lets parse some network data (with correct lifetimes)</h3>
+                <pre><code data-trim data-noescape class="language-rust"><script type="text/template">
+                    struct Parsed<'buffer> {
+                        name: &'buffer str
+                    }
+
+                    fn parse<'buffer>(data: &'buffer [u8]) -> Result<Parsed<'buffer>, usize> {
+                        if let Some(len) = data.get(0)
+                            let name: &str = str::from_utf8(data[0..len])?;
+                            Ok(Parsed {
+                                name
+                            })
+                        } else {
+                            return Err(0)
+                        }
+                    }
+                </script></code></pre>
+            </section>
+            <section>
+                <h3>Lets parse some network data (with owned data)</h3>
+                <pre><code data-trim data-noescape class="language-rust"><script type="text/template">
+                    struct Parsed {
+                        name: String
+                    }
+
+                    fn parse(data: &[u8]) -> Result<Parsed, usize> {
+                        if let Some(len) = data.get(0)
+                            // allocating a new array so we own it - costly
+                            let name = String::from_utf8(data[0..len].to_vec())?;
+                            Ok(Parsed {
+                                name
+                            })
+                        } else {
+                            return Err(0)
+                        }
+                    }
+                </script></code></pre>
+            </section>
+            <section>
+                <h3>Complexity in Rust</h3>
+                <ul>
+                    <li>Handling References in structs incurs complex Lifetime Handling or Data Copying</li>
+                    <li>Rethinking algorithms, ordering of data handling due to restrictive Borrow checker rules</li>
+                    <li>Owned data, mutable variables, mutable references, immutable references</li>
+                </ul>
+            </section>
+            <section>
+                <h3>Elegance in Rust</h3>
+                <ul>
+                    <li>Models sane rules for safe data/pointer handling</li>
+                    <li>No runtime overhead</li>
+                    <li>Also forbids data races that way</li>
+                </ul>
+            </section>
+
+            <section>
+                <h1>Pony</h1>
+                <p>How it achieves Memory Safety and Data Race Freedom</p>
+                <p>&nbsp;</p>
+                <p class="fragment">And drives programmers mad at compile time</p>
+                <p class="fragment">(In a different way).</p>
+            </section>
+
+            <section>
+                <h2>Important differences to Rust</h2>
+                <ul>
+                    <li class="fragment">Codesigned Type system and Runtime</li>
+                    <li class="fragment">A (super fast) Garbace Collector</li>
+                    <li class="fragment">Actor system</li>
+                    <li class="fragment">Threaded Runtime</li>
+                </ul>
+            </section>
+            <section>
+                <h2>Actors</h2>
+
+                <pre><code data-trim data-noescape class="language-pony"><script type="text/template">
+                    actor Main
+                      let state: USize
+                      new create(env: Env) =>
+                        state = env.args.size()
+                        try
+                          // sending a message to itself
+                          foo(args(0)?)
+                        end
+
+                      // behaviour
+                      be foo(arg0: String) =>
+                        // change internal state given the received message
+                        state = arg0.size()
+                </script></code></pre>
+            </section>
+            <section>
+                <h2>Actors</h2>
+                <ul>
+                    <li class="fragment">Encapsulate their state</li>
+                    <li class="fragment">Communicate only through message passing</li>
+                    <li class="fragment">Only 1 behaviour (<i>method</i> handling a message) executed at any time</li>
+                </ul>
+            </section>
+            <section>
+                <h2>Messages</h2>
+                <ul>
+                    <li class="fragment">Leaving 1 actor for another</li>
+                    <li class="fragment">Might cross thread boundaries</li>
+                    <li class="fragment">We might share mutable data</li>
+                    <li class="fragment">Data Races</li>
+                </ul>
+            </section>
+            <section>
+                <h2>Sharing Data</h2>
+                <ul>
+                    <li class="fragment">Similar to the Rust Borrow Checker Rules:</li>
+                    <li class="fragment">It is ok to share immutable data.</li>
+                    <li class="fragment">Sharing mutable data - not so much</li>
+                </ul>
+            </section>
+            <section>
+                <h2>Sharing Data</h2>
+                <p>Sending mutable data from one thread to another is ok IF:</p>
+                <ul>
+                    <li class="fragment"><b>We have no other references to the data.</b></li>
+                    <li class="fragment">Read-only references might see inconsistent intermediate state</li>
+                    <li class="fragment">Mutable references might overwrite data in unpredictable ways</li>
+                </ul>
+            </section>
+            <section>
+                <h2>Data in Pony</h2>
+                <p>Primitive Types (numbers, bools)</p>
+                <p>Classes (type descriptor + fields)</p>
+                <p>Actors and their fields</p>
+            </section>
+            <section>
+                <h2>Bringing Data to Life</h2>
+
+                <pre><code data-trim data-noescape class="language-pony"><script type="text/template">
+                    class Wombat
+                      let name: String
+                      let hunger_level: U64
+
+                      new create(name': String) =>
+                        """constructor"""
+                        name = name'
+                        hunger_level = 0
+                </script></code></pre>
+            </section>
+            <section>
+                <h2>Bringing Data to Life</h2>
+
+                <pre><code data-trim data-noescape class="language-pony"><script type="text/template">
+                    actor Main
+                      new create(env: Env) =>
+                        let wombat = Wombat.create("Fantastibat")
+                </script></code></pre>
+            </section>
+            <section>
+                <h2>Bringing Data to Life</h2>
+
+                <ol>
+                    <li class="fragment">Allocate some memory through the GC</li>
+                    <li class="fragment">Initialize <b>ALL</b> fields</li>
+                    <li class="fragment">Return a reference to the initialized Memory</li>
+                </ol>
+            </section>
+            <section>
+                <h2>References in Pony</h2>
+                <h3 class="fragment">ALL YOU EVER GET IS A REFERENCE</h3>
+            </section>
+            <section>
+                <h2>References in Pony</h2>
+                <h3 class="fragment">
+                    REFERENCE CAPABILITIES DETERMINE WHAT YOU ARE ALLOWED TO DO WITH REFERENCE
+                </h3>
+                <h3 class="fragment">
+                    ... OR WHAT YOU ARE NOT ALLOWED TO DO
+                </h3>
+            </section>
+            <section>
+                <h2>References in Pony</h2>
+                <p class="fragments">think of Objects as trees</p>
+                <p class="fragment">References are your access into that tree</p>
+                <p class="fragment">Capabilities limit your access, like a filter</p>
+            </section>
+            <section>
+                <h2>Deny Capabilities</h2>
+                <img src="images/deny_capabilities.png" alt="Deny Capabilities">
+
+                <a href="https://www.ponylang.io/media/papers/fast-cheap.pdf">Clebsch et. al: Deny Capabilities for
+                    Safe, Fast Actors</a>
+            </section>
+            <section>
+                <h2>Constructors determine the Capability</h2>
+
+                <pre><code data-trim data-noescape class="language-pony"><script type="text/template">
+                    let s: String ref = String.create(42)                    // creates a `String ref`
+                    let s2: String val = String.from_array([U8(66); U8(67)]) // creates a `String val`
+
+                    class Wombat
+                      let name: String
+
+                      new iso isolated(name': String) =>
+                        name = name'
+
+                      new val immutable(name': String) =>
+                        name = name'
+
+
+                </script></code></pre>
+            </section>
+            <section>
+                <h2>C intrinsics</h2>
+                <pre style="font-size: 0.5em"><code data-trim data-noescape data-line-numbers="1-17|1|5-7|9-12|15-17|"><script type="text/template">
+
+                  #include <immintrin.h>  // x86
+
+                  int main(void)
+                  {
+                     // load floats into SSE registers
+                     __m128 vector1 = _mm_set_ps(1.0, 1.0, 1.0, 1.0);
+                     __m128 vector2 = _mm_set_ps(1.0, 1.0, 1.0, 1.0);
+
+                     // sum up all 8 floats using horizontal adds
+                     __m128 sum = _mm_hadd_ps(vector1, vector2);
+                     sum = _mm_hadd_ps(sum, sum);
+                     sum = _mm_hadd_ps(sum, sum);
+
+                     // extract float in a horrible way
+                     float hsum = _mm_cvtss_f32(
+                         _mm_shuffle_ps(sum, sum, _MM_SHUFFLE(0, 0, 0, 2))
+                     );
+                     return 0;
+                  }
+				</script></code></pre>
+            </section>
+            <section>
+
+                <h2>C intrinsics</h2>
+                <ul>
+                    <li>offered by every platform</li>
+                    <li>compilers ship platform specific headers</li>
+                </ul>
+            </section>
+            <section>
+                <h2>C intrinsics</h2>
+                <ul>
+                    <li>
+                        Full control
+                    </li>
+                    <li>
+                        Very low-level
+                    </li>
+                    <li>
+                        Super complicated and horribly named
+                    </li>
+                    <li>
+                        Needs reimplementation for every platform
+                    </li>
+                </ul>
+            </section>
+
+
+            <section>
+                <section>
+                    <h1>SIMD Programming 101</h1>
+                </section>
+                <section>
+                    <ul>
+                        <li>
+                            split data into SIMD register sized chunks
+                        </li>
+                        <li class="fragment" data-fragment-index="2">
+                            load from memory into SIMD register
+                        </li>
+                        <li class="fragment" data-fragment-index="3">
+                            do the magic
+                        </li>
+                        <li class="fragment" data-fragment-index="4">
+                            store to memory / extract result
+                        </li>
+                        <li class="fragment" data-fragment-index="5">
+                            handle the scalar tail
+                        </li>
+                    </ul>
+                    <div class="r-stack">
+                        <img class="fragment current-visible" data-fragment-index="2" src="images/simd_101_02.svg"
+                            alt="SIMD 101 1 - split and load data into simd registers" />
+                        <img class="fragment current-visible" data-fragment-index="3" src="images/simd_101_03.svg"
+                            alt="SIMD 101 2 - do the magic" />
+                        <img class="fragment current-visible" data-fragment-index="4" src="images/simd_101_04a.svg"
+                            alt="SIMD 101 3 - store back" />
+                        <img class="fragment" data-fragment-index="5" src="images/simd_101_04.svg"
+                            alt="SIMD 101 4 - scalar tail" />
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Example:</h2>
+                    <h2>Find first byte in array</h2>
+                    <p>A.K.A. memchr</p>
+                </section>
+
+                <section>
+                    <pre><code data-trim data-noescape data-line-numbers="|5-12|14-19" class="language-c"><script type="text/template">
+static size_t VECTOR_SIZE = sizeof(__m256i);
+
+void* memchr_avx2(const uint8_t* haystack, uint8_t needle, size_t hlen) {
+
+    size_t idx = 0;
+    if (hlen > VECTOR_SIZE) {
+        // SIMD LOOP
+        while (idx < (hlen - VECTOR_SIZE)) {
+            // ... DO THE MAGIC
+            idx += VECTOR_SIZE;
+        }
+    }
+
+    // SCALAR TAIL
+    for (; idx < hlen; idx++) {
+        // ... SCALAR FALLBACK FOR THE REST
+    }
+    return NULL;
+}
+</script></code></pre>
+
+                    <p>x86_64 AVX2</p>
+                </section>
+                <section>
+                    <pre><code data-trim data-noescape data-line-numbers class="language-c"><script type="text/template">
+while (idx < (hlen - VECTOR_SIZE)) {
+    // LOAD DATA FROM MEMORY INTO SIMD REGISTER
+    __m256i chunk = _mm256_loadu_si256((const __m256i*)(haystack + idx));
+
+    // DO THE MAGIC
+    __m256i eq_res = _mm256_cmpeq_epi8(chunk, vneedle);
+
+    // EXTRACT RESULT
+    int mask = _mm256_movemask_epi8(eq_res);
+    if (mask != 0) {
+        return (void*)(haystack + idx + __builtin_ctz(mask));
+    }
+    idx += VECTOR_SIZE;
+}
+</script></code></pre>
+
+                    <p>x86_64 AVX2 - SIMD Loop</p>
+                </section>
+                <section>
+                    <pre><code data-trim data-noescape class="language-c"><script type="text/template">
+// SCALAR TAIL
+for (; idx < hlen; idx++) {
+    if (haystack[idx] == needle) {
+        return (void*)haystack + idx;
+    }
+}
+</script></code></pre>
+
+                    <p>x86_64 AVX2 - SIMD Loop</p>
+                </section>
+
+                <section>
+                    <h2>Wishlist for high level SIMD</h2>
+                    <ul>
+                        <li class="fragment">
+                            SIMD Register abstraction / type
+                        </li>
+                        <li class="fragment">
+                            abstracts over different architectures and extensions
+                        </li>
+                        <li class="fragment">
+                            provides fallbacks for other architectures
+                        </li>
+                        <li class="fragment">
+                            auto-detects available features on host CPU
+                        </li>
+                        <li class="fragment">
+                            Intuitive interaction with language type-system
+                        </li>
+                        <li class="fragment">
+                            Generates efficient instructions
+                        </li>
+                    </ul>
+                </section>
+                <section>
+                    <h2>Challenges for the language designer</h2>
+                    <ul>
+                        <li class="fragment">Vector / Array are goto data-structures for consecutive values</li>
+                        <li class="fragment">Variables == Stack / Heap</li>
+                        <li class="fragment">SIMD == Registers</li>
+                        <li class="fragment">Only exists in CPU - otherwise not a thing</li>
+                        <li class="fragment">Find a good runtime representation</li>
+                    </ul>
+                </section>
+
+            </section>
+
+            <!-- Languages -->
+            <section>
+
+                <section>
+                    <h1>Array programming and SIMD: Julia</h1>
+                </section>
+                <section>
+                    <h2>Array Programming</h2>
+                    <p class="fragment">
+                        convenient syntax to broadcast functions onto array/matrix elements
+                    </p>
+                    <pre class="fragment"><code data-trim data-noescape class="language-julia"><script type="text/template">
+julia> broadcast(+, [1, 2, 3], 1)
+3-element Array{Int64,1}:
+ 2
+ 3
+ 4
+					</script></code></pre>
+
+                    <p class="fragment">
+                        compiler can freely vectorize
+                    </p>
+                </section>
+                <section>
+                    <p>&nbsp;</p>
+                    <pre><code data-trim data-noescape class="language-julia"><script type="text/template">
+							julia -O3
+							julia> @code_native broadcast(+, Vector(1:100), 1)
+					</script></code></pre>
+                    <pre><code data-trim data-noescape data-line-numbers="1-4|5-8|9-12"><script type="text/template">
+								vpmovzxbq       (%rax,%rsi), %ymm1 ## ymm1 = mem[0],zero,zero,zero,zero,zero,zero,zero,mem[1],zero,zero,zero,zero,zero,zero,zero,mem[2],zero,zero,zero,zero,zero,zero,zero,mem[3],zero,zero,zero,zero,zero,zero,zero
+								vpmovzxbq       4(%rax,%rsi), %ymm2 ## ymm2 = mem[0],zero,zero,zero,zero,zero,zero,zero,mem[1],zero,zero,zero,zero,zero,zero,zero,mem[2],zero,zero,zero,zero,zero,zero,zero,mem[3],zero,zero,zero,zero,zero,zero,zero
+								vpmovzxbq       8(%rax,%rsi), %ymm3 ## ymm3 = mem[0],zero,zero,zero,zero,zero,zero,zero,mem[1],zero,zero,zero,zero,zero,zero,zero,mem[2],zero,zero,zero,zero,zero,zero,zero,mem[3],zero,zero,zero,zero,zero,zero,zero
+								vpmovzxbq       12(%rax,%rsi), %ymm4 ## ymm4 = mem[0],zero,zero,zero,zero,zero,zero,zero,mem[1],zero,zero,zero,zero,zero,zero,zero,mem[2],zero,zero,zero,zero,zero,zero,zero,mem[3],zero,zero,zero,zero,zero,zero,zero
+								vpaddq  %ymm0, %ymm1, %ymm1
+								vpaddq  %ymm0, %ymm2, %ymm2
+								vpaddq  %ymm0, %ymm3, %ymm3
+								vpaddq  %ymm0, %ymm4, %ymm4
+								vmovdqu %ymm1, (%rcx,%rsi,8)
+								vmovdqu %ymm2, 32(%rcx,%rsi,8)
+								vmovdqu %ymm3, 64(%rcx,%rsi,8)
+								vmovdqu %ymm4, 96(%rcx,%rsi,8)
+						</script></code></pre>
+                </section>
+                <section>
+                    <h2>SIMD in Julia</h2>
+
+                    <p>&nbsp;</p>
+                    <code>
+						NTuple{4, VecElement{Float64}}
+					</code>
+                    <p class="fragment">
+                        implemented on top of LLVM vector type
+                    </p>
+                    <div class="fragment">
+                        <code>
+							&lt;4 x double&gt;
+						</code>
+                        <p>Abstracts over different platforms</p>
+                    </div>
+                </section>
+                <section>
+                    <h2>SIMD in Julia</h2>
+                    <p>&nbsp;</p>
+                    <code class="fragment">
+						register = (VecElement(0.5), VecElement(1.1), VecElement(1.2), VecElement(0.0))
+					</code>
+                    <p>&nbsp;</p>
+                    <p class="fragment">
+                        compiler transforms this into LLVM vector
+                    </p>
+                    <p>&nbsp;</p>
+                    <p class="fragment">
+                        operations on SIMD registers: calling LLVM intrinsics via embedded llvm IR strings:
+                    </p>
+                    <pre class="fragment"><code data-trim data-noescape>
+							llvmcall("%res = fadd &lt;4 x double&gt; %0, %1 ...")
+						</code></pre>
+                </section>
+                <section>
+                    <h2>SIMD.jl</h2>
+                    <p><a href="">https://github.com/eschnett/SIMD.jl</a></p>
+                    <p>&nbsp;</p>
+                    <p>Some more convenience</p>
+                </section>
+                <section>
+                    <h2>SIMD findfirst</h2>
+
+                    <pre><code data-trim data-noescape style="font-size: 70%;" data-line-numbers="|6-8,10"><script type="text/template">
+using SIMD
+function find_first_simd(needle::UInt8, haystack::Array{UInt8})
+    l = length(haystack)
+    idx = 1
+    while idx + 31 <= l
+        reg = @inbounds SIMD.vload(SIMD.Vec{32,UInt8}, haystack, idx)
+        res = reg == needle
+        if SIMD.any(res)
+            @inbounds for i in 1:32 # no native movemask :(
+                if res[i]
+                    return idx + i - 1
+                end
+            end
+        end
+        idx += 32
+    end
+    # TODO: scalar tail
+    nothing
+end
+					</script></code></pre>
+                </section>
+                <section>
+                    <h2>SIMD findfirst</h2>
+                    <ul>
+                        <li>
+                            7x faster than unoptimized scalar loop
+                        </li>
+                        <li class="fragment">
+                            4x slower than C stdlib memchr
+                        </li>
+                    </ul>
+                </section>
+                <section>
+                    <h2>Julia: judgement day</h2>
+                    <ul>
+                        <li class="fragment">
+                            Array programming FTW for vectorization
+                        </li>
+                        <li class="fragment">
+                            Very raw SIMD interface in stdlib
+                        </li>
+                        <li class="fragment">
+                            Ergonomic SIMD code with SIMD.jl
+                        </li>
+                        <li class="fragment">
+                            Good interaction with Arrays load/store, gather/scatter
+                        </li>
+                        <li class="fragment">
+                            LLVM vector type not as powerful as native intrinsics
+                        </li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- JVM -->
+            <section>
+                <section>
+                    <h1>SIMD on the JVM</h1>
+                </section>
+                <section>
+                    <h2><a href="https://openjdk.java.net/jeps/338">Vector API - JEP 338</a></h2>
+                    <p>Part of JDK 16 (to be released March 2021)</p>
+                    <P>&nbsp;</P>
+                    <p><a href="https://jdk.java.net/16/">Early access builds</a> available.</p>
+                </section>
+                <section>
+                    <h2>Vector</h2>
+                    <p>&nbsp;</p>
+                    <p>
+                        Typed interface to SIMD registers
+                    </p>
+                    <p class="fragment">
+                        Parameterized on lane type
+                    </p>
+                    <p class="fragment">and register size</p>
+                    <pre style="width: 100%" class="fragment"><code data-trim data-noescape class="language-java"><script type="text/template">
+						var allOnes = ByteVector.broadcast(ByteVector.SPECIES_256, (byte)0xFF);
+					</script></code></pre>
+                </section>
+                <section>
+                    <h2>Vector</h2>
+                    <p>&nbsp;</p>
+                    <p>Vector size property of the host CPU </p>
+                    <p>&nbsp;</p>
+                    <p>auto-detected at runtime</p>
+                </section>
+                <section>
+                    <h2>Vector</h2>
+                    <p>&nbsp;</p>
+                    <p>Hotspot C2 JIT emits SIMD instructions if available</p>
+                    <p>&nbsp;</p>
+                    <p>Fallback scalar methods in plain java</p>
+                </section>
+                <section>
+                    <pre style="width: 100%"><code data-trim data-noescape class="language-java" data-line-numbers="1-20|2|5-6|11-12|14-17"><script type="text/template">
+
+class Memchr {
+    public static VectorSpecies<Byte> species = ByteVector.SPECIES_PREFERRED;
+
+    public static int memchr(byte[] haystack, byte needle) {
+        var needleVec = ByteVector.broadcast(species, needle);
+        var upperBound = species.loopBound(haystack.length());
+
+        // vector loop
+        int idx = 0;
+        for (; idx < upperBound; idx += species.length()) {
+            var vec = ByteVector.fromArray(species, haystack, idx);
+            var mask = vec.compare(VectorOperators.EQ, needleVec);
+
+            var firstTrue = mask.firstTrue();
+            if (firstTrue < species.length()) {
+                return idx + firstTrue;
+            }
+        }
+        // scalar tail
+        for (; idx < haystack.length; idx++) {
+            if (haystack[idx] == needle) {
+                return idx;
+            }
+        }
+        return -1;
+    }
+}
+					</script></code></pre>
+                    <p>memchr in java with Vector API</p>
+                </section>
+                <section>
+                    <p>Hard to beat auto-vectorized scalar version:</p>
+                    <p>&nbsp;</p>
+                    <pre><code data-trim data-noescape class="language-java"><script type="text/template">
+						for (int i= 0: i < haystack.length; i++) {
+						    if (haystack[i] == needle) {
+						        return i;
+						    }
+						}
+						return -1;
+					</script></code></pre>
+                </section>
+                <section>
+                    <img src="images/Java memchr Benchmark-1.png" />
+                </section>
+
+                <section>
+                    <h2>Java: judgment day</h2>
+                    <ul>
+                        <li class="fragment">Thoughtful and rich API</li>
+                        <li class="fragment">Portable SIMD programming</li>
+                        <li class="fragment">Immensely powerful -> JVM ecosystem</li>
+                        <li class="fragment">A bit unpredictable performance</li>
+                    </ul>
+                </section>
+            </section>
+
+
+            <!-- Rust -->
+            <section>
+                <section>
+                    <h1><span class="fragment">Parsing JSON in </span>Rust</h1>
+                </section>
+                <!--
+                <section>
+                    <ul>
+                        <li class="fragment">
+                            <p>Compile time checks for architecture</p>
+                            <code class="fragment">
+#[cfg(target_arch = "x86_64")]
+                            </code>
+                        </li>
+                        <li class="fragment">
+                            <p>Compile time checks for target features</p>
+                            <code class="fragment">
+#[cfg(target_feature = "avx2")]
+                            </code>
+                        </li>
+                        <li class="fragment">
+                            <p>Compile for a target_feature (unsafe)</p>
+                            <code class="fragment">
+#[target_feature(enable = "avx2")]
+                            </code>
+                        </li>
+                        <li class="fragment">
+                            <p>Runtime target feature detection</p>
+                            <pre class="fragment"><code data-trim data-noescape>
+        if is_x86_feature_detected!("avx2") {
+            unsafe { foo_avx2() };
+        }
+                            </code></pre>
+                        </li>
+                    </ul>
+                </section>
+            -->
+                <section>
+                    <h2 style="text-transform: none;">core::arch</h2>
+                    <ul>
+                        <li>
+                            Access to RAW vendor specific intrinsics
+                        </li>
+                        <li class="fragment">Exposes C instrinsics</li>
+                        <li class="fragment">
+                            runtime checks for supported features
+                            <pre class="fragment"><code data-trim data-noescape>
+        if is_x86_feature_detected!("avx2") {
+            unsafe { foo_avx2() };
+        }
+                            </code></pre>
+                        </li>
+                        <li class="fragment">
+                            Possibility to compile portable binaries with optimizations for different target_features
+                        </li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>SIMD-json</h2>
+                    <p>&nbsp;</p>
+                    <p><a href="https://github.com/simd-lite/simd-json">https://github.com/simd-lite/simd-json</a>
+                    </p>
+                    <p>Port of lemires C++ SIMD-json project</p>
+                    <p>In heavy use at Tremor</p>
+                </section>
+
+                <section>
+                    <h2>SIMD-json</h2>
+                    <p class="fragment">Focussed on maxing out performance</p>
+                    <p>&nbsp;</p>
+                    <p class="fragment">Deliberate choice to use vendor intrinsics</p>
+                    <p>&nbsp;</p>
+                    <p class="fragment">Different stuff works for different platforms</p>
+                </section>
+
+                <section>
+                    <h3>Completely different Algorithm</h3>
+                    <p>Compared to scalar version</p>
+                </section>
+                <section>
+                    <h3>Scalar Approach</h3>
+                    <ul>
+                        <li>Iterate the byte stream</li>
+                        <li>building up a JSON data-structure (HashMap/Array/...)</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>SIMD-json Approach</h3>
+                    <ul>
+                        <li class="fragment">Multiple passes over the byte stream</li>
+                        <ul>
+                            <li class="fragment">
+                                <b>Pass 1: </b>detect structural characters: <br />
+                                <code>{ } : " , whitespace</code>
+                            </li>
+                            <li class="fragment">
+                                <b>Pass 2:</b>
+                                Iterate over structurals, build "tape" of tokens, build struct, map, array etc from
+                                that.
+                            </li>
+                        </ul>
+                    </ul>
+                </section>
+                <section>
+                    <pre><code data-trim data-noescape class="language-rust"><script type="text/template">
+let low_nibble_mask: uint8x16_t =
+std::mem::transmute([16u8, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]);
+let high_nibble_mask: uint8x16_t =
+std::mem::transmute([8u8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]);
+
+let structural_shufti_mask: uint8x16_t = vmovq_n_u8(0x7);
+let whitespace_shufti_mask: uint8x16_t = vmovq_n_u8(0x18);
+let low_nib_and_mask: uint8x16_t = vmovq_n_u8(0xf);
+
+let nib_0_lo: uint8x16_t = vandq_u8(self.v0, low_nib_and_mask);
+let nib_0_hi: uint8x16_t = vshrq_n_u8(self.v0, 4);
+let shuf_0_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_0_lo);
+let shuf_0_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_0_hi);
+let v_0: uint8x16_t = vandq_u8(shuf_0_lo, shuf_0_hi);
+
+let nib_1_lo: uint8x16_t = vandq_u8(self.v1, low_nib_and_mask);
+let nib_1_hi: uint8x16_t = vshrq_n_u8(self.v1, 4);
+let shuf_1_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_1_lo);
+let shuf_1_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_1_hi);
+let v_1: uint8x16_t = vandq_u8(shuf_1_lo, shuf_1_hi);
+
+let nib_2_lo: uint8x16_t = vandq_u8(self.v2, low_nib_and_mask);
+let nib_2_hi: uint8x16_t = vshrq_n_u8(self.v2, 4);
+let shuf_2_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_2_lo);
+let shuf_2_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_2_hi);
+let v_2: uint8x16_t = vandq_u8(shuf_2_lo, shuf_2_hi);
+
+let nib_3_lo: uint8x16_t = vandq_u8(self.v3, low_nib_and_mask);
+let nib_3_hi: uint8x16_t = vshrq_n_u8(self.v3, 4);
+let shuf_3_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_3_lo);
+let shuf_3_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_3_hi);
+let v_3: uint8x16_t = vandq_u8(shuf_3_lo, shuf_3_hi);
+
+let tmp_0: uint8x16_t = vtstq_u8(v_0, structural_shufti_mask);
+let tmp_1: uint8x16_t = vtstq_u8(v_1, structural_shufti_mask);
+let tmp_2: uint8x16_t = vtstq_u8(v_2, structural_shufti_mask);
+let tmp_3: uint8x16_t = vtstq_u8(v_3, structural_shufti_mask);
+*structurals = neon_movemask_bulk(tmp_0, tmp_1, tmp_2, tmp_3);
+
+let tmp_ws_v0: uint8x16_t = vtstq_u8(v_0, whitespace_shufti_mask);
+let tmp_ws_v1: uint8x16_t = vtstq_u8(v_1, whitespace_shufti_mask);
+let tmp_ws_v2: uint8x16_t = vtstq_u8(v_2, whitespace_shufti_mask);
+let tmp_ws_v3: uint8x16_t = vtstq_u8(v_3, whitespace_shufti_mask);
+*whitespace = neon_movemask_bulk(tmp_ws_v0, tmp_ws_v1, tmp_ws_v2, tmp_ws_v3);
+					</script></code></pre>
+                    <p>structural character detection algorithm "shufti" (ARM NEON)</p>
+                </section>
+                <section>
+                    <h2>SIMD character classification</h2>
+                    <p>
+                    <pre style="font-size: 0.9em;"><code data-trim data-noescape class="language-python">
+        '}' = 0x7d
+                / \
+    nibbles:   7   13
+
+    # table lookup using nibbles as lookup index
+    high_niblle_table[7] = 0x01
+    low_nibble_table[13] = 0x09
+
+    # character class
+    (0x01 & 0x09) & mask = 0x01
+                    </code></pre>
+                    </p>
+                    <p class="fragment"> ~ 12 instructions for creating bitmask from 16 characters</p>
+                </section>
+                <section>
+                    <p>Up to 2x faster than Rust serde_json</p>
+                    <p>&nbsp;</p>
+                    <p>
+                        according to <a href="https://github.com/serde-rs/json-benchmark">serde-rs/json-benchmark</a>
+                    </p>
+                </section>
+                <!--
+                <section>
+                    <h2>stdsimd</h2>
+                    <a href="https://github.com/rust-lang/stdsimd">https://github.com/rust-lang/stdsimd</a>
+                    <p>&nbsp;</p>
+                    <p>effort to provide portable SIMD interface</p>
+                    <p>Based on LLVM vectors</p>
+                    <p>const size array as runtime representation</p>
+                </section>
+                <section>
+                    <h2>Faster</h2>
+                    <ul>
+                        <li>SIMD iterator</li>
+                        <li>express explicit SIMD operations by specifying SIMD loop operation in a declarative
+                            fashion
+                        </li>
+                        <li>scalar fallback for tail loop included</li>
+                    </ul>
+                    <pre class="fragment"><code data-trim data-noescape class="language-rust"><script type="text/template">
+use faster::*;
+
+let lots_of_3s = (&[-123.456f32; 128][..]).simd_iter()
+    .simd_map(f32s(0.0), |v| {
+        f32s(9.0) * v.abs().sqrt().rsqrt().ceil().sqrt() - f32s(42.0)
+    })
+    .scalar_collect();
+</script></code></pre>
+                </section>
+        -->
+            </section>
+            <section>
+                <section>
+                    <h2>Wrapping up</h2>
+                    <ul>
+                        <li class="fragment">Support for explicit SIMD programming more and more widespread</li>
+                        <li class="fragment">C, C++, Java, Rust, Julia, Zig, Swift, wasm</li>
+                        <li class="fragment">Portable</li>
+                        <li class="fragment">Ergonomic</li>
+                        <li class="fragment">Promising Potential But <b>No silver bullet</b></li>
+                    </ul>
+                </section>
+                <section>
+                    <h2>Wrapping up</h2>
+                    <ul>
+                        <li class="fragment">
+                            Performance optimization hard
+                        </li>
+                        <li class="fragment">
+                            ... requires extensive testing and benchmarking
+                        </li>
+                        <li class="fragment">
+                            ... initial hunch is often incorrect
+                        </li>
+                        <li class="fragment">
+                            ... simple porting of scalar algorithms does not work
+                        </li>
+                    </ul>
+                </section>
+                <section>
+                    <h2>But...</h2>
+                    <ul>
+                        <li style="font-size: 2em" class="fragment">
+                            It's fun!
+                        </li>
+                        <li style="font-size: 2em" class="fragment">
+                            It's beneficial!
+                        </li>
+                    </ul>
+                    <div class="r-stack">
+
+                        <p style="font-size: 2em" class="fragment current-visible">You can show off!</p>
+                        <img class="fragment" src="images/they_dont_know.jpg" alt="they dont know cvttpd2dq"
+                            height="80%" />
+                    </div>
+
+                </section>
+                <section>
+                    <h1 class="r-fit-text">Thank you!</h1>
+                </section>
+            </section>
+        </div>
+    </div>
+
+    <script src="dist/reveal.js"></script>
+    <script src="plugin/notes/notes.js"></script>
+    <script src="plugin/markdown/markdown.js"></script>
+    <script src="plugin/highlight/highlight.js"></script>
+    <script>
+        // More info about initialization & config:
+        // - https://revealjs.com/initialization/
+        // - https://revealjs.com/config/
+        Reveal.initialize({
+            hash: true,
+            margin: 0.2,
+
+            // Learn about plugins: https://revealjs.com/plugins/
+            plugins: [RevealMarkdown, RevealHighlight, RevealNotes]
+        });
+    </script>
+</body>
+
+</html>
